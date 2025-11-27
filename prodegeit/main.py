@@ -41,9 +41,14 @@ def main():
     print(f"Resources: {len(RESOURCES)}")
     print(f"Risks: {len(RISKS)}")
     
-    # Initialize output directory
-    output_dir = "output"
-    os.makedirs(output_dir, exist_ok=True)
+    # Initialize output directory with timestamp
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+    archive_dir = os.path.join("output", f"run_{timestamp}")
+    os.makedirs(archive_dir, exist_ok=True)
+    
+    print(f"\n📁 Output folder: {archive_dir}")
+    
+    output_dir = archive_dir
     
     # STEP 1: Resource Allocation
     if not args.report_only:
@@ -291,6 +296,33 @@ def main():
             f.write(f"Pricing: ${usage_stats['pricing']['input']:.2f}/${usage_stats['pricing']['output']:.2f} per 1M tokens\n")
     
     print(f"\nSummary saved to: {os.path.abspath(summary_path)}")
+    
+    # Create/update 'latest' symlink or directory
+    import shutil
+    latest_dir = os.path.join("output", "latest")
+    
+    # Clean up existing latest folder/link
+    try:
+        if os.path.islink(latest_dir):
+            os.unlink(latest_dir)
+        elif os.path.exists(latest_dir):
+            shutil.rmtree(latest_dir)
+    except Exception as e:
+        print(f"⚠️  Warning: Could not remove old 'latest' folder: {e}")
+    
+    # Create symlink on Unix-like systems, copy folder on Windows
+    try:
+        os.symlink(f"run_{timestamp}", latest_dir, target_is_directory=True)
+        print(f"🔗 Latest symlink updated: {latest_dir} -> run_{timestamp}")
+    except (OSError, NotImplementedError) as e:
+        # Fallback for Windows without admin privileges
+        try:
+            shutil.copytree(archive_dir, latest_dir, dirs_exist_ok=True)
+            print(f"📋 Latest copy updated: {latest_dir}")
+        except Exception as copy_err:
+            print(f"⚠️  Warning: Could not create 'latest' folder: {copy_err}")
+
+
 
 
 if __name__ == "__main__":

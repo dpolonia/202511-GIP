@@ -41,13 +41,12 @@ env/
 .env.*.local
 
 # Generated Output Files (exclude final deliverables, keep only source code)
-output/*.xml
-output/*.xlsx
-output/*.txt
-output/*.pdf
+output/run_*/
+output/latest/
 
 # Keep output directory structure but ignore contents
 !output/.gitkeep
+
 
 # Logs
 *.log
