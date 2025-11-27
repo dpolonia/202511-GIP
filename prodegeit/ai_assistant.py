@@ -20,8 +20,13 @@ if not GOOGLE_API_KEY:
 else:
     genai.configure(api_key=GOOGLE_API_KEY)
 
-# Model configuration
-MODEL_NAME = "gemini-2.0-flash-exp"
+# Model configuration - Try Gemini 3 Pro first, fallback to 2.5 Pro
+MODEL_PRIORITY = [
+    "gemini-3-pro-preview",      # Best: Gemini 3 Pro Preview
+    "gemini-2.5-pro",            # Fallback: Gemini 2.5 Pro
+    "gemini-2.0-flash-exp"       # Final fallback: Gemini 2.0 Flash
+]
+
 GENERATION_CONFIG = {
     "temperature": 0.7,
     "top_p": 0.95,
@@ -41,17 +46,35 @@ class AIAssistant:
     """AI Assistant using Gemini for content generation"""
     
     def __init__(self):
-        """Initialize the AI assistant"""
-        try:
-            self.model = genai.GenerativeModel(
-                model_name=MODEL_NAME,
-                generation_config=GENERATION_CONFIG,
-                safety_settings=SAFETY_SETTINGS
-            )
-            self.available = True
-        except Exception as e:
-            print(f"WARNING: Could not initialize Gemini model: {e}")
-            self.available = False
+        """Initialize the AI assistant with model fallback"""
+        self.available = False
+        self.model_name = None
+        
+        # Try models in priority order
+        for model_name in MODEL_PRIORITY:
+            try:
+                print(f"Attempting to initialize {model_name}...")
+                self.model = genai.GenerativeModel(
+                    model_name=model_name,
+                    generation_config=GENERATION_CONFIG,
+                    safety_settings=SAFETY_SETTINGS
+                )
+                # Test the model with a simple request
+                test_response = self.model.generate_content("Test")
+                
+                # If successful, use this model
+                self.available = True
+                self.model_name = model_name
+                print(f"✓ Successfully initialized {model_name}")
+                break
+                
+            except Exception as e:
+                print(f"✗ {model_name} not available: {e}")
+                continue
+        
+        if not self.available:
+            print(f"WARNING: Could not initialize any Gemini model")
+            self.model = None
     
     def generate_executive_summary(self, project_data: Dict, allocation_results: Dict, 
                                    risk_analysis: Dict) -> str:
