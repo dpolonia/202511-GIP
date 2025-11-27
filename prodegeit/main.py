@@ -243,6 +243,17 @@ def main():
     print(f"  Expected Impact (after): €{risk_results['residual_risk']['expected_cost']:,.2f}")
     print(f"  Risk Reduction: {((1 - risk_results['residual_risk']['expected_cost'] / risk_results['expected_case']['total_expected_cost']) * 100):.1f}%")
     
+    # API Usage Statistics
+    if ai_assistant.available:
+        usage_stats = ai_assistant.get_usage_stats()
+        print(f"\n🤖 AI API Usage:")
+        print(f"  Model: {usage_stats['model']}")
+        print(f"  Total Tokens: {usage_stats['total_tokens']:,}")
+        print(f"    - Input: {usage_stats['input_tokens']:,}")
+        print(f"    - Output: {usage_stats['output_tokens']:,}")
+        print(f"  Estimated Cost: ${usage_stats['estimated_cost_usd']:.4f}")
+        print(f"  Pricing: ${usage_stats['pricing']['input']:.2f}/${usage_stats['pricing']['output']:.2f} per 1M tokens")
+    
     print("\n" + "="*70)
     print("✓ PROJECT PLANNING COMPLETE")
     print("="*70)
@@ -265,6 +276,19 @@ def main():
         f.write("CONCLUSIONS\n")
         f.write("-"*70 + "\n")
         f.write(conclusions + "\n")
+        
+        # Add API usage stats
+        if ai_assistant.available:
+            usage_stats = ai_assistant.get_usage_stats()
+            f.write("\n" + "="*70 + "\n")
+            f.write("AI API USAGE STATISTICS\n")
+            f.write("="*70 + "\n")
+            f.write(f"Model: {usage_stats['model']}\n")
+            f.write(f"Total Tokens: {usage_stats['total_tokens']:,}\n")
+            f.write(f"  - Input Tokens: {usage_stats['input_tokens']:,}\n")
+            f.write(f"  - Output Tokens: {usage_stats['output_tokens']:,}\n")
+            f.write(f"Estimated Cost: ${usage_stats['estimated_cost_usd']:.4f} USD\n")
+            f.write(f"Pricing: ${usage_stats['pricing']['input']:.2f}/${usage_stats['pricing']['output']:.2f} per 1M tokens\n")
     
     print(f"\nSummary saved to: {os.path.abspath(summary_path)}")
 

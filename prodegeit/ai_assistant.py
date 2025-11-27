@@ -41,6 +41,14 @@ SAFETY_SETTINGS = [
     {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_ONLY_HIGH"},
 ]
 
+# Gemini API Pricing (as of Nov 2025, per million tokens)
+# Source: https://ai.google.dev/pricing
+API_PRICING = {
+    "gemini-3-pro-preview": {"input": 1.25, "output": 5.00},      # $1.25/$5.00 per 1M tokens
+    "gemini-2.5-pro": {"input": 1.25, "output": 5.00},            # $1.25/$5.00 per 1M tokens
+    "gemini-2.0-flash-exp": {"input": 0.00, "output": 0.00},      # Free during preview
+}
+
 
 class AIAssistant:
     """AI Assistant using Gemini for content generation"""
@@ -49,6 +57,9 @@ class AIAssistant:
         """Initialize the AI assistant with model fallback"""
         self.available = False
         self.model_name = None
+        self.total_input_tokens = 0
+        self.total_output_tokens = 0
+        self.total_cost = 0.0
         
         # Try models in priority order
         for model_name in MODEL_PRIORITY:
@@ -75,6 +86,37 @@ class AIAssistant:
         if not self.available:
             print(f"WARNING: Could not initialize any Gemini model")
             self.model = None
+    
+    def _track_tokens(self, response):
+        """Track token usage from API response"""
+        try:
+            if hasattr(response, 'usage_metadata'):
+                input_tokens = response.usage_metadata.prompt_token_count
+                output_tokens = response.usage_metadata.candidates_token_count
+                
+                self.total_input_tokens += input_tokens
+                self.total_output_tokens += output_tokens
+                
+                # Calculate cost
+                if self.model_name in API_PRICING:
+                    pricing = API_PRICING[self.model_name]
+                    cost = (input_tokens * pricing["input"] / 1_000_000 + 
+                           output_tokens * pricing["output"] / 1_000_000)
+                    self.total_cost += cost
+        except Exception as e:
+            # Token tracking is non-critical, don't fail on errors
+            pass
+    
+    def get_usage_stats(self) -> Dict:
+        """Get token usage statistics and cost estimate"""
+        return {
+            'model': self.model_name,
+            'input_tokens': self.total_input_tokens,
+            'output_tokens': self.total_output_tokens,
+            'total_tokens': self.total_input_tokens + self.total_output_tokens,
+            'estimated_cost_usd': round(self.total_cost, 4),
+            'pricing': API_PRICING.get(self.model_name, {"input": 0, "output": 0})
+        }
     
     def generate_executive_summary(self, project_data: Dict, allocation_results: Dict, 
                                    risk_analysis: Dict) -> str:
@@ -117,6 +159,7 @@ Use professional project management terminology. Be specific with numbers.
         
         try:
             response = self.model.generate_content(prompt)
+            self._track_tokens(response)
             return response.text
         except Exception as e:
             print(f"Error generating executive summary: {e}")
@@ -154,6 +197,7 @@ Be concise and professional.
         
         try:
             response = self.model.generate_content(prompt)
+            self._track_tokens(response)
             return response.text.strip()
         except Exception as e:
             print(f"Error generating resource justification: {e}")
@@ -192,6 +236,7 @@ Be specific and use project management terminology.
         
         try:
             response = self.model.generate_content(prompt)
+            self._track_tokens(response)
             return response.text.strip()
         except Exception as e:
             print(f"Error generating risk narrative: {e}")
@@ -233,6 +278,7 @@ Use authoritative, professional language appropriate for senior management revie
         
         try:
             response = self.model.generate_content(prompt)
+            self._track_tokens(response)
             return response.text
         except Exception as e:
             print(f"Error generating conclusions: {e}")
@@ -260,6 +306,7 @@ Format as a numbered list.
         
         try:
             response = self.model.generate_content(prompt)
+            self._track_tokens(response)
             practices = response.text.strip().split('\n')
             # Clean up and filter
             practices = [p.strip() for p in practices if p.strip() and any(c.isalpha() for c in p)]
